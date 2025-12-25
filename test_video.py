@@ -13,14 +13,19 @@ import time
 from ultralytics import YOLO
 
 # --- KONFIGURASI INPUT ---
-# GANTI INI dengan path video Anda
-VIDEO_PATH = "/home/han/Videos/2025-12-11 02-04-39.mp4"
-# VIDEO_PATH = "/home/han/Videos/ragis-not-cheating.mp4"
+VIDEO_PATH = "/run/media/han/HDD RAIHAN/Real Dataset Cheating Comvis/Preprocessing/dataset_clips_split/test/not_cheating/not_cheating_00145.mp4"
 
 # Konfigurasi Model
-MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Dataset Video/3dcnn_cheating_smoothing.pth" 
+MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Projek/r3d_18_cheating_best_without_TL_v2.pth"
+# MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Projek/r3d_18_cheating_best_v3.pth"
 CLIP_LEN = 32
 CLASSES = ["cheating", "not_cheating"]
+
+# --- KONFIGURASI DELAY (YANG DITAMBAHKAN) ---
+# Semakin besar angkanya, video semakin lambat.
+# 0.03 = ~30 FPS (Standar)
+# 0.1  = Lambat (Memberi waktu model R3D untuk berpikir)
+PLAYBACK_DELAY = 0.05  
 
 # --- GLOBAL VARIABLES (MULTI-PERSON) ---
 track_data = {} 
@@ -28,12 +33,13 @@ keep_running = True
 lock = threading.Lock() 
 
 # --- SETUP DEVICE ---
-device = "cpu"
+device = "cuda"
 print(f"Device yang dipilih: {device}")
 
 # 1. Load YOLO
 print("Loading YOLOv8...")
-yolo_model = YOLO("yolov8n.pt")
+# Pastikan path ini benar di laptop Anda
+yolo_model = YOLO("/home/han/Documents/Kuliah/S5/Comvis/Dataset Video/yolov8n.pt")
 
 # 2. Load R3D-18
 print("Loading R3D-18 Action Model...")
@@ -112,6 +118,7 @@ def action_recognition_worker():
                 except Exception as e:
                     print(f"Error pada ID {track_id}: {e}")
 
+        # Delay kecil di thread worker agar tidak memakan CPU 100%
         if processed_any:
             time.sleep(0.1) 
         else:
@@ -195,21 +202,22 @@ def run_multi_person_system():
                         cnf = track_data[track_id]['conf']
                         clr = track_data[track_id]['color']
 
-                    # --- VISUALISASI (MODIFIKASI DI SINI) ---
+                    # --- VISUALISASI ---
                     
-                    # Logika: Jika label masih 'Analyzing...', JANGAN GAMBAR APAPUN.
-                    # Lanjut ke orang berikutnya.
+                    # Hanya gambar jika label bukan 'Analyzing...', 
+                    # atau jika Anda ingin melihat kotak kuning (analyzing), hapus "if lbl ==..." ini.
                     if lbl == 'Analyzing...':
-                        continue
-
-                    # Jika sudah bukan analyzing (sudah ada hasil prediksi), baru gambar
-                    cv2.rectangle(frame, (bx1, by1), (bx2, by2), clr, 2)
-                    
-                    text = f"ID:{track_id} | {lbl} {cnf}"
-                    t_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-                    cv2.rectangle(frame, (bx1, by1 - 20), (bx1 + t_size[0], by1), clr, -1)
-                    cv2.putText(frame, text, (bx1, by1 - 5), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        # Opsional: Tetap gambar kotak kuning agar tahu orang terdeteksi
+                        cv2.rectangle(frame, (bx1, by1), (bx2, by2), (0, 255, 255), 2)
+                        cv2.putText(frame, "Analyzing...", (bx1, by1 - 5), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                    else:
+                        cv2.rectangle(frame, (bx1, by1), (bx2, by2), clr, 2)
+                        text = f"ID:{track_id} | {lbl} {cnf}"
+                        t_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+                        cv2.rectangle(frame, (bx1, by1 - 20), (bx1 + t_size[0], by1), clr, -1)
+                        cv2.putText(frame, text, (bx1, by1 - 5), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
         # --- 3. UI DASHBOARD ---
         frame_count += 1
@@ -223,6 +231,10 @@ def run_multi_person_system():
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
         
         cv2.imshow("Multi-Person Cheating Detection", frame)
+
+        # --- TAMBAHAN DELAY ---
+        # Ini menahan loop agar video tidak diputar terlalu cepat
+        time.sleep(PLAYBACK_DELAY)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             keep_running = False

@@ -14,7 +14,8 @@ os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 # --- KONFIGURASI ---
 CAMERA_SOURCE = 0
-MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Dataset Video/r3d_18_cheating_best_camera_fixed.pth"  # Sesuaikan nama file model Anda
+MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Model/r3d_18_cheating_best_without_TL_v2.pth"  # Sesuaikan nama file model Anda
+# MODEL_PATH = "/home/han/Documents/Kuliah/S5/Comvis/Projek/r3d_18_cheating_best_v3.pth"
 CLIP_LEN = 32
 CLASSES = ["cheating", "not_cheating"]
 
@@ -27,12 +28,12 @@ keep_running = True
 last_detected_box = None
 
 # --- SETUP DEVICE (FORCE CPU) ---
-device = "cpu"
+device = "cuda"
 print(f"Device yang dipilih: {device}")
 
 # 1. Load YOLO (Deteksi Orang)
 print("Loading YOLOv8...")
-yolo_model = YOLO("yolov8n.pt")
+yolo_model = YOLO("/home/han/Documents/Kuliah/S5/Comvis/Model/yolov8n.pt")
 
 # 2. Load R3D-18 (Klasifikasi Aksi)
 print("Loading R3D-18 Action Model...")
@@ -134,7 +135,7 @@ def run_hybrid_system():
         if not ret: break
 
         # Force YOLO ke CPU
-        results = yolo_model(frame, classes=[0], verbose=False, conf=0.5, device='cpu')
+        results = yolo_model(frame, classes=[0], verbose=False, conf=0.5, device=device)
         
         person_found = False
         largest_box = None
